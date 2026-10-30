@@ -34,7 +34,9 @@ export class HealthKitProvider implements HealthProvider {
     const [stepsAgg, restingAgg, sleepSamples, workoutResult] = await Promise.all([
       Health.queryAggregated({ dataType: 'steps', startDate, endDate, bucket: 'day', aggregation: 'sum' }),
       Health.queryAggregated({ dataType: 'restingHeartRate', startDate, endDate, bucket: 'day', aggregation: 'average' }),
-      Health.readSamples({ dataType: 'sleep', startDate, endDate, limit: 500, ascending: true }),
+      // 睡眠按“最新优先”拉取：分期睡眠一晚会产生大量阶段样本，样本数超过上限时
+      // 丢弃最旧的夜晚而不是最新的，保证看板需要的最近几晚数据完整；展示端再按日期升序归并。
+      Health.readSamples({ dataType: 'sleep', startDate, endDate, limit: 2000, ascending: false }),
       Health.queryWorkouts({ startDate, endDate, limit: 50, ascending: false }),
     ]);
 

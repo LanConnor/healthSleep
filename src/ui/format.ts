@@ -47,6 +47,12 @@ export function formatShortDate(dateKey: string): string {
   return `${Number(month)}/${Number(day)}`;
 }
 
+/** 日期键（YYYY-MM-DD）→ “10月29日” */
+export function formatDateKeyCn(dateKey: string): string {
+  const [, month, day] = dateKey.split('-');
+  return `${Number(month)}月${Number(day)}日`;
+}
+
 /** ISO 时间 → “07:32” */
 export function formatTime(iso: string): string {
   const date = new Date(iso);

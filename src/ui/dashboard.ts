@@ -1,6 +1,7 @@
 import type { HealthProvider, HealthSnapshot } from '../health';
+import { toDateKey } from '../health/date';
 import { createHeartRateChart, createSleepChart, createStepsChart } from './charts';
-import { formatDateCn, formatMinutes, formatSteps, formatTime, workoutLabel } from './format';
+import { formatDateCn, formatDateKeyCn, formatMinutes, formatSteps, formatTime, workoutLabel } from './format';
 
 const STEPS_GOAL = 10_000;
 
@@ -46,9 +47,13 @@ function errorView(error: unknown): string {
 
 /** 组装看板页面结构 */
 function dashboardView(snapshot: HealthSnapshot): string {
+  const todayKey = toDateKey(new Date());
   const latestSteps = snapshot.dailySteps.at(-1);
+  const isToday = latestSteps?.date === todayKey;
   const stepsValue = latestSteps?.steps ?? 0;
   const progress = Math.min(1, stepsValue / STEPS_GOAL);
+  // 今天还没有步数桶时，如实标注展示的是最近哪一天的数据
+  const heroLabel = isToday || !latestSteps ? '今日步数' : `${formatDateKeyCn(latestSteps.date)} 步数`;
 
   const latestHr = snapshot.restingHeartRate.at(-1);
   const previousHr = snapshot.restingHeartRate.at(-2);
@@ -84,7 +89,7 @@ function dashboardView(snapshot: HealthSnapshot): string {
       </span>
     </header>
 
-    <section class="hero" aria-label="今日步数">
+    <section class="hero" aria-label="${heroLabel}">
       <div class="ring-wrap">
         <svg class="ring" viewBox="0 0 200 200" aria-hidden="true">
           <defs>
@@ -99,7 +104,7 @@ function dashboardView(snapshot: HealthSnapshot): string {
         </svg>
         <div class="ring-center">
           <span class="ring-value" id="ring-value" data-target="${stepsValue}">0</span>
-          <span class="ring-label">今日步数</span>
+          <span class="ring-label">${heroLabel}</span>
         </div>
       </div>
       <p class="hero-note">目标 ${formatSteps(STEPS_GOAL)} 步,已完成 ${Math.round(progress * 100)}%</p>
