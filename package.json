@@ -1,0 +1,25 @@
+{
+  "name": "apple-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "健康数据看板：Vite + TypeScript + Capacitor 脚手架（浏览器用 Mock 数据，真机走 HealthKit）",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "mock:generate": "node tools/generate-mock.mjs",
+    "ios:sync": "npm run build && cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.6.0",
+    "@capgo/capacitor-health": "^8.11.13",
+    "chart.js": "^4.6.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.0",
+    "@capacitor/ios": "^8.6.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  }
+}
