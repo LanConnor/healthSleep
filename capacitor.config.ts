@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.example.healthdashboard',
+  appId: 'com.lanconnor.healthdashboard',
   appName: 'Health Dashboard',
   webDir: 'dist',
   // 开发期真机热更新（可选）：在 Mac 上构建前取消注释，换成你 Windows 电脑的局域网地址，

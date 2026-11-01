@@ -58,8 +58,10 @@ export interface Workout {
 export interface HealthSnapshot {
   /** 数据生成时间，ISO 8601 */
   generatedAt: string;
-  /** 数据来源 */
-  source: 'mock' | 'healthkit';
+  /** 数据来源：mock=浏览器预览，healthkit=真机，demo=HealthKit 不可用时回退的演示数据 */
+  source: 'mock' | 'healthkit' | 'demo';
+  /** source 为 demo 时的回退原因（用于界面提示） */
+  demoReason?: string;
   /** 每日步数，按日期升序 */
   dailySteps: DailySteps[];
   /** 每日静息心率，按日期升序 */
@@ -73,7 +75,7 @@ export interface HealthSnapshot {
 /** 数据源抽象：页面只依赖此接口，不关心数据来自 Mock 还是 HealthKit */
 export interface HealthProvider {
   /** 数据来源标识 */
-  readonly kind: 'mock' | 'healthkit';
+  readonly kind: 'mock' | 'healthkit' | 'demo';
   /** 读取最近 days 天的健康快照 */
   loadSnapshot(days: number): Promise<HealthSnapshot>;
 }

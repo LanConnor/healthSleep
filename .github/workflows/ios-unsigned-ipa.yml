@@ -1,0 +1,101 @@
+# 在 GitHub 的 macOS runner 上编译未签名 IPA，供 Windows 用户下载后
+# 用爱思助手 + 个人免费 Apple ID 重签安装（免费签名不支持 HealthKit 能力，详见 README）。
+#
+# 触发方式：
+#   1. 手动：Actions → Build unsigned iOS IPA → Run workflow
+#   2. 打 tag：git tag v0.1.0 && git push origin v0.1.0
+name: Build unsigned iOS IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      demo:
+        description: "构建演示版：不调用 HealthKit，使用内置演示数据（适合免费签名验证界面）"
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-ipa:
+    name: Build unsigned IPA
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    env:
+      # 勾选 demo 输入时构建演示版；tag 触发的构建不是演示版
+      VITE_FORCE_DEMO: ${{ inputs.demo && '1' || '0' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      # 演示数据的日期窗口是"最近 30 天"，构建时重新生成，装到手机上不会过期
+      - name: Refresh mock demo data
+        run: npm run mock:generate
+
+      - name: Build web assets
+        run: npm run build
+
+      - name: Sync Capacitor iOS project
+        run: npx cap sync ios
+
+      # runner 镜像默认 Xcode 可能偏旧，选已安装的最新版本
+      - name: Select newest Xcode
+        run: |
+          ls -d /Applications/Xcode*.app
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)/Contents/Developer"
+          xcodebuild -version
+
+      # 未签名归档：CODE_SIGNING_ALLOWED=NO 让 xcodebuild 跳过证书/描述文件校验，
+      # 产出的 App.app 不含任何签名，交给爱思助手重签。
+      - name: Build unsigned archive
+        working-directory: ios/App
+        run: |
+          xcodebuild archive \
+            -project App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -quiet \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      # IPA 就是一个 zip：Payload/App.app
+      - name: Package unsigned IPA
+        run: |
+          APP="$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app"
+          if [ ! -d "$APP" ]; then
+            echo "::error::未找到构建产物 $APP"
+            exit 1
+          fi
+          cd "$RUNNER_TEMP"
+          rm -rf Payload
+          mkdir Payload
+          cp -R "$APP" Payload/
+          SUFFIX=""
+          if [ "$VITE_FORCE_DEMO" = "1" ]; then SUFFIX="-demo"; fi
+          zip -qry "healthSleep-unsigned$SUFFIX.ipa" Payload
+          shasum -a 256 "healthSleep-unsigned$SUFFIX.ipa" | tee ipa-sha256.txt
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: healthSleep-unsigned-ipa${{ inputs.demo && '-demo' || '' }}
+          path: |
+            ${{ runner.temp }}/healthSleep-unsigned*.ipa
+            ${{ runner.temp }}/ipa-sha256.txt
+          if-no-files-found: error
+          retention-days: 30

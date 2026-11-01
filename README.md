@@ -37,6 +37,7 @@ npm run dev
 appleWorkspace
 ├── capacitor.config.ts            # Capacitor 配置（含局域网热更新示例，默认注释）
 ├── index.html
+├── .github/workflows/ios-unsigned-ipa.yml # GitHub Actions：构建未签名 IPA
 ├── public/mock/health-export.json # 浏览器预览用的 Mock 数据（30 天）
 ├── src
 │   ├── main.ts                    # 入口
@@ -52,7 +53,7 @@ appleWorkspace
 │       ├── charts.ts              # Chart.js 图表（步数 / 静息心率 / 睡眠）
 │       └── format.ts              # 展示层格式化
 ├── tools/generate-mock.mjs        # Mock 数据生成脚本
-├── ios/                           # Capacitor 生成的 Xcode 工程（需在 Mac 上编译）
+├── ios/                           # Capacitor 生成的 Xcode 工程（CI 或 Mac 编译）
 └── dist/                          # 构建产物
 ```
 
@@ -80,8 +81,10 @@ export const healthProvider: HealthProvider = Capacitor.isNativePlatform()
 
 ## iOS 真机（需要一台 Mac）
 
-前置条件：Mac + Xcode、iPhone 真机、基本需要 ¥688/年的付费 Apple 开发者账号
-（HealthKit 能力在免费个人 Team 下经常签不出来，后台数据投递等能力明确要求付费账号）。
+前置条件：Mac + Xcode、iPhone 真机、**付费** Apple 开发者账号（¥688/年）。
+HealthKit capability 只对付费账号开放：免费个人 Team 在 Xcode 里勾选 HealthKit 会直接报错
+（"Personal development teams do not support the HealthKit capability"），后台数据投递等能力同样如此。
+没有 Mac 时可以先走《无 Mac 打包 IPA》一节，用免费账号验证安装与界面，但读不到健康数据。
 
 1. Windows 上提交代码：`npm run build` 后 `git push`；
 2. Mac 上：`npm ci && npm run ios:sync`（等价于 `npm run build && npx cap sync ios`）；
@@ -93,7 +96,10 @@ export const healthProvider: HealthProvider = Capacitor.isNativePlatform()
 
 - `ios/App/App/Info.plist` 已写入 `NSHealthShareUsageDescription`（健康数据读取说明文案）；
 - 桌面显示名已设为「健康看板」；
-- `@capgo/capacitor-health` 已通过 Swift Package Manager 写入 Xcode 工程（Capacitor 8 默认 SPM，无需 CocoaPods）。
+- `@capgo/capacitor-health` 已通过 Swift Package Manager 写入 Xcode 工程（Capacitor 8 默认 SPM，无需 CocoaPods）；
+- `ios/App/App/App.entitlements` 已声明 HealthKit entitlement，Xcode 工程已登记 HealthKit capability（付费账号签名时生效）；
+- 已提供共享 scheme `ios/App/App.xcodeproj/xcshareddata/xcschemes/App.xcscheme`，CI 可直接 `xcodebuild -scheme App`；
+- `.github/workflows/ios-unsigned-ipa.yml`：在 GitHub 的 macOS runner 上构建未签名 IPA（见下节）。
 
 HealthKit 注意事项：
 
@@ -108,8 +114,58 @@ HealthKit 注意事项：
 （手机和电脑需在同一 WiFi），`npm run dev` 保持运行。App 在 Mac 上编译安装一次后，
 Web 层的改动会直接在手机里热更新，**只有原生代码/插件改动才需要回 Mac 重新编译**。
 
+## 无 Mac 打包 IPA（GitHub Actions + 爱思助手签名）
+
+工程已内置 `.github/workflows/ios-unsigned-ipa.yml`：由 GitHub 的 macOS runner 编译出
+**未签名 IPA**，Windows 下载后用爱思助手重签安装，全程不需要 Mac。
+
+### 在 GitHub 上构建
+
+1. 提交并推送代码（workflow 需要在默认分支上才能手动触发）：
+
+   ```bash
+   git add -A && git commit -m "ci: 构建未签名 IPA" && git push
+   ```
+
+2. 触发构建，两种方式任选：
+   - GitHub 仓库页 → **Actions** → **Build unsigned iOS IPA** → **Run workflow**
+     （勾选 **demo** 输入框则构建演示版，见下）；
+   - 或打 tag：`git tag v0.1.0 && git push origin v0.1.0`（tag 构建不是演示版）。
+3. 构建约 5–10 分钟。完成后在该次运行页面底部下载 artifact，解压得到 `.ipa`
+   （同包内附 SHA-256 校验值）：
+   - 普通版：`healthSleep-unsigned-ipa.zip` → `healthSleep-unsigned.ipa`（走 HealthKit）；
+   - 演示版：`healthSleep-unsigned-ipa-demo.zip` → `healthSleep-unsigned-demo.ipa`
+     （完全不调用 HealthKit，强制使用内置演示数据，适合免费签名验证界面）。
+
+> 演示数据来自 `public/mock/health-export.json`，CI 构建前会自动执行 `mock:generate`
+> 把它滚动到当天，装到手机上不会过期。想在浏览器里预览演示横幅：
+> `VITE_FORCE_DEMO=1 npm run dev`（Git Bash / macOS 写法）。
+
+> 私有仓库注意：macOS runner 按 10 倍计费，免费额度 2000 分钟/月约合 200 分钟 macOS 构建；
+> 公开仓库不限时长。
+
+### 用爱思助手签名安装（Windows）
+
+1. 爱思助手 → 工具箱 → **IPA 签名** → 添加 `healthSleep-unsigned.ipa`；
+2. 登录你的 Apple ID（免费个人账号，需要能收验证码）；
+3. 开始签名，完成后安装到已连接的 iPhone；
+4. 首次运行前，在 iPhone 上信任证书：设置 → 通用 → VPN 与设备管理。
+   若 7 天后 App 打不开，重新签名安装即可。
+
+### 免费签名的边界（重要）
+
+- **免费 Apple ID 签不出 HealthKit 能力**——苹果只对付费开发者开放该 capability，
+  这不是"基础数据 vs 全部数据"的区别，读步数同样需要它。免费签名装上的普通构建
+  会进入错误页（普通构建运行期 HealthKit 抛错时会自动回退演示数据并标注来源）；
+  想稳定看到完整界面，请直接构建**演示版**。免费签名 7 天过期，重签即可。
+- App ID、证书数量按周有配额，频繁重签可能被限流。
+- **要真机验证 HealthKit 读取，必须用付费 Apple Developer 账号**：
+  - 方式一：付费账号的证书 + 描述文件（App ID 勾选 HealthKit）导入爱思助手签名；
+  - 方式二：把证书/描述文件存成 GitHub Secrets，改造成带签名工作流，直接产出可安装
+    IPA 或上传 TestFlight（需要时可在现有 workflow 基础上扩展）。
+
 ## 下一步建议
 
-- 真机签名前把 `capacitor.config.ts` 的 `appId`（当前 `com.example.healthdashboard`）改成自己的 Bundle ID；
+- `appId` 已设为 `com.lanconnor.healthdashboard`（全局唯一，免费签名创建 App ID 时需要）；对外发布前可按自己的域名调整；
 - 真机联调 `native-provider.ts` 的睡眠归并和聚合口径；
 - 需要插件未覆盖的数据类型（如血氧、HRV）时，在 `ios/` 工程里补一个 Swift Capacitor 插件即可。

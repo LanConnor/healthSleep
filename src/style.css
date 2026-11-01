@@ -77,6 +77,37 @@ body {
   border-color: rgba(46, 107, 79, 0.35);
 }
 
+.source-chip-demo {
+  color: var(--workout);
+  border-color: rgba(196, 134, 42, 0.4);
+  background: rgba(255, 248, 235, 0.85);
+}
+
+/* ---------- 演示数据横幅 ---------- */
+
+.demo-banner {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border: 1px dashed rgba(196, 134, 42, 0.5);
+  border-radius: 12px;
+  background: rgba(255, 248, 235, 0.8);
+}
+
+.demo-banner-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #7a5318;
+}
+
+.demo-banner-note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  word-break: break-word;
+}
+
 /* ---------- 步数环 ---------- */
 
 .hero {

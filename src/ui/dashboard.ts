@@ -25,7 +25,12 @@ export async function renderDashboard(root: HTMLElement, provider: HealthProvide
 
 /** 加载中的占位视图 */
 function loadingView(provider: HealthProvider): string {
-  const sourceName = provider.kind === 'mock' ? '本地 Mock 文件' : 'HealthKit';
+  const sourceName =
+    provider.kind === 'mock'
+      ? '本地 Mock 文件'
+      : provider.kind === 'demo'
+        ? '演示数据（HealthKit 不可用时自动回退）'
+        : 'HealthKit';
   return `
     <div class="state" role="status">
       <p class="state-title">正在读取健康数据</p>
@@ -41,6 +46,7 @@ function errorView(error: unknown): string {
       <p class="state-title">读取健康数据失败</p>
       <p class="state-note">${escapeHtml(message)}</p>
       <p class="state-note">浏览器预览请确认 public/mock/health-export.json 存在;真机请检查 HealthKit 授权。</p>
+      <p class="state-note">若真机是用免费 Apple ID（如爱思助手）重签安装的，免费签名不含 HealthKit 能力，读取健康数据必然失败，属正常现象。</p>
       <button class="retry" type="button">重新加载</button>
     </div>`;
 }
@@ -85,9 +91,10 @@ function dashboardView(snapshot: HealthSnapshot): string {
         <p class="page-date">${formatDateCn(snapshot.generatedAt)}</p>
       </div>
       <span class="source-chip source-chip-${snapshot.source}">
-        ${snapshot.source === 'mock' ? 'Mock 数据' : 'HealthKit'}
+        ${chipLabel(snapshot.source)}
       </span>
     </header>
+    ${snapshot.source === 'demo' ? demoBanner(snapshot.demoReason) : ''}
 
     <section class="hero" aria-label="${heroLabel}">
       <div class="ring-wrap">
@@ -173,8 +180,41 @@ function dashboardView(snapshot: HealthSnapshot): string {
     </section>
 
     <footer class="page-foot">
-      <p>数据源 ${snapshot.source === 'mock' ? 'Mock 文件' : 'HealthKit'},更新于 ${formatTime(snapshot.generatedAt)}</p>
+      <p>数据源 ${footerSourceLabel(snapshot.source)},更新于 ${formatTime(snapshot.generatedAt)}</p>
     </footer>`;
+}
+
+/** 数据来源角标文案 */
+function chipLabel(source: HealthSnapshot['source']): string {
+  switch (source) {
+    case 'mock':
+      return 'Mock 数据';
+    case 'demo':
+      return '演示数据';
+    default:
+      return 'HealthKit';
+  }
+}
+
+/** 页脚数据来源文案 */
+function footerSourceLabel(source: HealthSnapshot['source']): string {
+  switch (source) {
+    case 'mock':
+      return 'Mock 文件';
+    case 'demo':
+      return '演示数据';
+    default:
+      return 'HealthKit';
+  }
+}
+
+/** 演示数据横幅：明确告知数据非真实，并给出回退原因 */
+function demoBanner(reason?: string): string {
+  return `
+    <div class="demo-banner" role="note">
+      <p class="demo-banner-title">当前展示的是演示数据，仅用于界面预览</p>
+      <p class="demo-banner-note">${escapeHtml(reason ?? '当前构建强制使用演示数据')}</p>
+    </div>`;
 }
 
 /** 最近运动列表 */
