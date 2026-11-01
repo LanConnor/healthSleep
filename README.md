@@ -38,6 +38,7 @@ appleWorkspace
 ├── capacitor.config.ts            # Capacitor 配置（含局域网热更新示例，默认注释）
 ├── index.html
 ├── .github/workflows/ios-unsigned-ipa.yml # GitHub Actions：构建未签名 IPA
+├── docs/ios-build-notes.md        # 打包/签名/真机验证记录（交接文档）
 ├── public/mock/health-export.json # 浏览器预览用的 Mock 数据（30 天）
 ├── src
 │   ├── main.ts                    # 入口
@@ -169,5 +170,9 @@ Web 层的改动会直接在手机里热更新，**只有原生代码/插件改�
 ## 下一步建议
 
 - `appId` 已设为 `com.lanconnor.healthdashboard`（全局唯一，免费签名创建 App ID 时需要）；对外发布前可按自己的域名调整；
-- 真机联调 `native-provider.ts` 的睡眠归并和聚合口径；
-- 需要插件未覆盖的数据类型（如血氧、HRV）时，在 `ios/` 工程里补一个 Swift Capacitor 插件即可。
+- 真机联调 `native-provider.ts` 的睡眠归并和聚合口径（当前 28 类全量读取，逐项结果看页面底部诊断面板）；
+- 需要插件未覆盖的数据类型时，在 `ios/` 工程里补一个 Swift Capacitor 插件即可。
+
+## 交接文档
+
+打包、签名、真机验证与已知限制的完整记录见 [docs/ios-build-notes.md](docs/ios-build-notes.md)。
