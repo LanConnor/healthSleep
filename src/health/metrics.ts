@@ -3,6 +3,9 @@ import type { HealthDataType, HealthUnit } from '@capgo/capacitor-health';
 /**
  * 核心指标（步数/静息心率/睡眠/运动）在看板主区域展示，其余类型统一在"更多指标"网格展示。
  * mode 决定读取方式：sum/average 按天聚合；latest 取最近一条样本；bloodPressure 取最近一条血压样本。
+ * 注意：iOS 端插件（HealthKit 实现）只对部分类型支持 queryAggregated，
+ * 不支持的类型（见下方注释）必须用 readSamples 读取，否则会报
+ * "Aggregated queries are not supported for xxx. Use readSamples instead."。
  */
 export interface MetricConfig {
   dataType: HealthDataType;
@@ -13,17 +16,18 @@ export interface MetricConfig {
 /** 除核心四类之外，额外读取的全部健康数据类型 */
 export const EXTRA_METRICS: MetricConfig[] = [
   { dataType: 'distance', label: '步行跑步距离', mode: 'sum' },
-  { dataType: 'distanceCycling', label: '骑行距离', mode: 'sum' },
-  { dataType: 'flightsClimbed', label: '爬楼层数', mode: 'sum' },
-  { dataType: 'exerciseTime', label: '锻炼时间', mode: 'sum' },
+  // 以下类型 iOS 端不支持聚合查询（含睡眠/站立等分类类型），用样本读取取最近一条
+  { dataType: 'distanceCycling', label: '骑行距离', mode: 'latest' },
+  { dataType: 'flightsClimbed', label: '爬楼层数', mode: 'latest' },
+  { dataType: 'exerciseTime', label: '锻炼时间', mode: 'latest' },
   { dataType: 'calories', label: '活动能量', mode: 'sum' },
-  { dataType: 'basalCalories', label: '基础能量', mode: 'sum' },
-  { dataType: 'totalCalories', label: '总消耗能量', mode: 'sum' },
+  { dataType: 'basalCalories', label: '基础能量', mode: 'latest' },
+  { dataType: 'totalCalories', label: '总消耗能量', mode: 'latest' },
   { dataType: 'heartRate', label: '心率', mode: 'average' },
-  { dataType: 'heartRateVariability', label: '心率变异性', mode: 'average' },
-  { dataType: 'respiratoryRate', label: '呼吸频率', mode: 'average' },
-  { dataType: 'oxygenSaturation', label: '血氧', mode: 'average' },
-  { dataType: 'vo2Max', label: '最大摄氧量', mode: 'average' },
+  { dataType: 'heartRateVariability', label: '心率变异性', mode: 'latest' },
+  { dataType: 'respiratoryRate', label: '呼吸频率', mode: 'latest' },
+  { dataType: 'oxygenSaturation', label: '血氧', mode: 'latest' },
+  { dataType: 'vo2Max', label: '最大摄氧量', mode: 'latest' },
   { dataType: 'weight', label: '体重', mode: 'latest' },
   { dataType: 'height', label: '身高', mode: 'latest' },
   { dataType: 'bodyFat', label: '体脂率', mode: 'latest' },
@@ -32,8 +36,8 @@ export const EXTRA_METRICS: MetricConfig[] = [
   { dataType: 'bodyTemperature', label: '体温', mode: 'latest' },
   { dataType: 'basalBodyTemperature', label: '基础体温', mode: 'latest' },
   { dataType: 'appleSleepingWristTemperature', label: '睡眠手腕温度', mode: 'latest' },
-  { dataType: 'mindfulness', label: '正念时间', mode: 'sum' },
-  { dataType: 'appleStandHour', label: '站立小时', mode: 'sum' },
+  { dataType: 'mindfulness', label: '正念时间', mode: 'latest' },
+  { dataType: 'appleStandHour', label: '站立小时', mode: 'latest' },
   { dataType: 'dietaryWater', label: '饮水', mode: 'sum' },
   { dataType: 'dietaryEnergyConsumed', label: '摄入能量', mode: 'sum' },
 ];
