@@ -54,6 +54,49 @@ export interface Workout {
   energyKcal?: number;
 }
 
+/** 单项数据类型的读取状态 */
+export type MetricStatus = 'ok' | 'empty' | 'error';
+
+/** 单个数据类型的读取结果（用于"更多指标"与诊断面板） */
+export interface MetricReading {
+  /** 插件数据类型 key，如 steps / heartRateVariability */
+  dataType: string;
+  /** 中文名称 */
+  label: string;
+  /** 是否为看板核心指标（步数/静息心率/睡眠/运动） */
+  core?: boolean;
+  status: MetricStatus;
+  /** 数值（最近一天或最近一条样本） */
+  value?: number;
+  /** 插件返回的单位 */
+  unit?: string;
+  /** 展示文本，如“8,025 步” / “--” / “读取失败” */
+  display: string;
+  /** 状态说明：错误信息、样本统计等 */
+  detail?: string;
+}
+
+/** 一次数据读取的完整诊断信息 */
+export interface HealthDiagnostics {
+  /** 最终采用的数据源 */
+  provider: 'mock' | 'healthkit' | 'demo';
+  /** HealthKit 是否可用（Mock 数据源不适用） */
+  available?: boolean;
+  availabilityReason?: string;
+  /** 授权请求结果 */
+  authorization?: {
+    status: 'ok' | 'error';
+    readAuthorized?: string[];
+    readDenied?: string[];
+    error?: string;
+  };
+  /** 各数据类型的读取结果 */
+  readings: MetricReading[];
+  /** 其他备注（回退原因、平台限制等） */
+  notes?: string[];
+  generatedAt: string;
+}
+
 /** 一次查询返回的健康数据快照 */
 export interface HealthSnapshot {
   /** 数据生成时间，ISO 8601 */
@@ -70,6 +113,8 @@ export interface HealthSnapshot {
   sleep: SleepNight[];
   /** 最近运动，按开始时间降序 */
   workouts: Workout[];
+  /** 本次读取的诊断信息（页面底部展示） */
+  diagnostics?: HealthDiagnostics;
 }
 
 /** 数据源抽象：页面只依赖此接口，不关心数据来自 Mock 还是 HealthKit */
@@ -78,4 +123,6 @@ export interface HealthProvider {
   readonly kind: 'mock' | 'healthkit' | 'demo';
   /** 读取最近 days 天的健康快照 */
   loadSnapshot(days: number): Promise<HealthSnapshot>;
+  /** 最近一次读取的诊断信息（读取失败时也可用，供回退场景展示） */
+  getDiagnostics?(): HealthDiagnostics | undefined;
 }

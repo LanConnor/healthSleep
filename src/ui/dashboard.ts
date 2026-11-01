@@ -21,6 +21,7 @@ export async function renderDashboard(root: HTMLElement, provider: HealthProvide
   root.innerHTML = dashboardView(snapshot);
   initCharts(snapshot);
   animateHero();
+  bindDiagnostics(root);
 }
 
 /** 加载中的占位视图 */
@@ -179,6 +180,9 @@ function dashboardView(snapshot: HealthSnapshot): string {
       ${workoutList(snapshot)}
     </section>
 
+    ${metricsPanel(snapshot)}
+    ${diagnosticsPanel(snapshot)}
+
     <footer class="page-foot">
       <p>数据源 ${footerSourceLabel(snapshot.source)},更新于 ${formatTime(snapshot.generatedAt)}</p>
     </footer>`;
@@ -215,6 +219,122 @@ function demoBanner(reason?: string): string {
       <p class="demo-banner-title">当前展示的是演示数据，仅用于界面预览</p>
       <p class="demo-banner-note">${escapeHtml(reason ?? '当前构建强制使用演示数据')}</p>
     </div>`;
+}
+
+/** 更多健康指标网格：展示除核心四类之外所有数据类型的读取结果 */
+function metricsPanel(snapshot: HealthSnapshot): string {
+  const extras = snapshot.diagnostics?.readings.filter((reading) => !reading.core) ?? [];
+  if (extras.length === 0) {
+    return '';
+  }
+  const items = extras
+    .map(
+      (reading) => `
+        <div class="metric">
+          <span class="metric-label">${escapeHtml(reading.label)}</span>
+          <span class="metric-value${reading.status === 'error' ? ' is-error' : ''}">${escapeHtml(reading.display)}</span>
+        </div>`,
+    )
+    .join('');
+  return `
+    <section class="panel">
+      <header class="panel-head">
+        <h2>更多健康指标</h2>
+        <span>近 30 天</span>
+      </header>
+      <div class="metric-grid">${items}</div>
+    </section>`;
+}
+
+/** 数据读取诊断：可复制的文本框，便于反馈各数据类型的读取情况 */
+function diagnosticsPanel(snapshot: HealthSnapshot): string {
+  if (!snapshot.diagnostics) {
+    return '';
+  }
+  return `
+    <section class="panel">
+      <header class="panel-head">
+        <h2>数据读取诊断</h2>
+        <span>可复制反馈</span>
+      </header>
+      <textarea id="diagnostics-text" class="diagnostics-box" readonly rows="14" spellcheck="false">${escapeHtml(
+        diagnosticsText(snapshot),
+      )}</textarea>
+      <div class="copy-row">
+        <button id="copy-diagnostics" class="retry copy-btn" type="button">复制诊断信息</button>
+      </div>
+    </section>`;
+}
+
+/** 生成诊断文本（与文本框内容一致） */
+function diagnosticsText(snapshot: HealthSnapshot): string {
+  const lines: string[] = [];
+  const diagnostics = snapshot.diagnostics;
+  lines.push('健康看板 · 数据读取诊断');
+  lines.push(`时间: ${formatDateCn(snapshot.generatedAt)} ${formatTime(snapshot.generatedAt)}`);
+  lines.push(`数据源: ${chipLabel(snapshot.source)}${snapshot.demoReason ? `（回退原因: ${snapshot.demoReason}）` : ''}`);
+  if (diagnostics) {
+    if (diagnostics.available != null) {
+      lines.push(
+        `HealthKit 可用: ${diagnostics.available ? '是' : '否'}${
+          diagnostics.availabilityReason ? `（${diagnostics.availabilityReason}）` : ''
+        }`,
+      );
+    }
+    if (diagnostics.authorization) {
+      if (diagnostics.authorization.status === 'ok') {
+        const authorized = diagnostics.authorization.readAuthorized ?? [];
+        const denied = diagnostics.authorization.readDenied ?? [];
+        lines.push(
+          `授权请求: 成功（授权 ${authorized.length} 项${denied.length > 0 ? `，拒绝 ${denied.length} 项: ${denied.join(', ')}` : ''}）`,
+        );
+      } else {
+        lines.push(`授权请求: 失败 — ${diagnostics.authorization.error ?? '未知错误'}`);
+      }
+    }
+    lines.push('');
+    lines.push('数据类型读取结果:');
+    for (const reading of diagnostics.readings) {
+      const statusText =
+        reading.status === 'ok'
+          ? `成功 ${reading.display}`
+          : reading.status === 'empty'
+            ? '无数据'
+            : `错误 — ${reading.detail ?? ''}`;
+      const mark = reading.status === 'ok' ? '✓' : reading.status === 'empty' ? '○' : '✕';
+      const extra = reading.status !== 'error' && reading.detail ? `（${reading.detail}）` : '';
+      lines.push(`${mark} ${reading.label}(${reading.dataType})${reading.core ? '[核心]' : ''}: ${statusText}${extra}`);
+    }
+    if (diagnostics.notes?.length) {
+      lines.push('');
+      lines.push(`备注: ${diagnostics.notes.join('；')}`);
+    }
+  } else {
+    lines.push('无诊断数据');
+  }
+  return lines.join('\n');
+}
+
+/** 绑定“复制诊断信息”按钮：优先写入剪贴板，失败则选中文本供手动复制 */
+function bindDiagnostics(root: HTMLElement): void {
+  const button = root.querySelector<HTMLButtonElement>('#copy-diagnostics');
+  const textarea = root.querySelector<HTMLTextAreaElement>('#diagnostics-text');
+  if (!button || !textarea) {
+    return;
+  }
+  button.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+      button.textContent = '已复制';
+    } catch {
+      textarea.focus();
+      textarea.select();
+      button.textContent = '已选中，长按复制';
+    }
+    window.setTimeout(() => {
+      button.textContent = '复制诊断信息';
+    }, 2500);
+  });
 }
 
 /** 最近运动列表 */
