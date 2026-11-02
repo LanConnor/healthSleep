@@ -17,6 +17,7 @@
   （`.github/workflows/ios-unsigned-ipa.yml`，手动 Run workflow，可勾 `demo` 构建演示版）。
 - **免费 Apple ID 签名不含 HealthKit capability**（已真机实测，报 Missing entitlement）。
   真机读健康数据必须付费 Apple 开发者账号；不要再建议任何免费方案。
+  免费账号可用「快捷指令」导出健康样本文件、由看板导入展示（不经过 App 的 HealthKit，见 docs 第 11 节）。
 - 仓库远程指向 SSH 别名 `github-lanconnor`（`~/.ssh/config`，专用密钥 `id_ed25519_lanconnor`），
   直接 `git push origin master` 即可。提交信息结尾按约定加 Co-Authored-By。
 - 数据源链：浏览器 → `MockHealthProvider`；真机 → `DemoHealthProvider(HealthKitProvider)`，

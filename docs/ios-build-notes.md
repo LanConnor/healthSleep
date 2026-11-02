@@ -139,7 +139,7 @@ appleSleepingWristTemperature、mindfulness、appleStandHour、dietaryWater、di
 
 ## 9. 已知限制与注意事项
 
-- **免费签名不可读 HealthKit**：硬性限制，无绕过方案；
+- **免费签名不可读 HealthKit**：硬性限制，无绕过方案；但可以用「快捷指令」导出健康样本文件，由看板本地导入展示（不经过 App 的 HealthKit，见第 11 节）；
 - `package-lock.json` 曾指向阿里云私有 npm 源（`packages.aliyun.com`），GitHub Actions 上没有凭据会 401。
   已改回 `https://registry.npmjs.org`（版本与 integrity 不变）。**今后不要用私有源重新生成 lockfile**；
 - Windows 上 `git add` 出现 `LF will be replaced by CRLF` 警告属正常（仓库内存 LF）；
@@ -154,5 +154,21 @@ appleSleepingWristTemperature、mindfulness、appleStandHour、dietaryWater、di
 2. 常用命令：`npm ci`、`npm run dev`、`npm run build`、`npm run ios:sync`、`npm run mock:generate`；
 3. 构建入口：GitHub 仓库 Actions → Build unsigned iOS IPA → Run workflow（可勾 demo）；
 4. 涉及 HealthKit 真机读取时，先确认用户是否已有付费 Apple 开发者账号；
-   没有就只承诺"演示数据 + 诊断面板"能验证，不要承诺能读到健康数据；
+   没有就只承诺"演示数据 + 诊断面板"能验证，不要承诺能读到健康数据；免费账号可以用第 11 节的快捷指令导出路径；
 5. 重要变更后请同步更新本文件与 CLAUDE.md。
+
+## 11. 快捷指令导出健康样本（免费账号可展示真实历史数据）
+
+App 没有 HealthKit entitlement 时一条数据都读不到；但 iOS「快捷指令」有自己独立的健康数据权限，可以免费读取用户的健康样本并导出成文件，再由看板本地解析展示。这条路径不调用 App 的 HealthKit，因此免费签名和浏览器模式都能用。
+
+- 生成未签名源文件：`node tools/build-health-shortcut.mjs` → `shortcuts/health-samples.shortcut`（XML plist）。
+- 签名：iOS 15+ 不接受未签名 `.shortcut`，必须用 macOS 的 `shortcuts sign`。仓库新增 `.github/workflows/sign-health-shortcut.yml`（Actions → Sign iOS Shortcut → Run workflow），产物为 `signed-health-shortcut`。
+- 安装：下载 artifact 里的 `health-samples.shortcut`，传到 iPhone（GitHub 网页下载 / 文件 App / iCloud Drive），点开导入；首次运行允许读取步数、静息心率、睡眠。
+- 数据格式：快捷指令读取最近 2 天的原始样本，写入 iCloud Drive/Shortcuts/health-samples.json：
+  - `steps`：`开始时间|数值;...`
+  - `restingHeartRate`：`开始时间|数值;...`
+  - `sleep`：`开始时间|结束时间|阶段;...`
+  - `schema` 为 `healthsleep.samples.v1`。
+- 自动化：健康数据在锁屏时不可读，纯定时任务可能静默失败。建议用「App 已打开」（例如打开健康 App 时）触发并「立即运行」，再配一个时间自动化作补充；最近 2 天的窗口可以在下次成功运行时补数。
+- 注意：快捷指令返回原始样本，步数可能把 iPhone 与 Watch 的重复记录一起相加，需与健康 App 对照；睡眠阶段值是本地化文本（核心睡眠/深睡/快速眼动/清醒/卧床）；运动记录不在快捷指令的健康动作范围内，仍用官方导出文件补。
+- 看板消费：还需新增导入入口（解析上述 JSON、按本地日期汇总并合并）；导入的真实健康数据不要提交到公开仓库。
