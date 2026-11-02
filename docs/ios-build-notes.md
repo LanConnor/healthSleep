@@ -162,14 +162,14 @@ appleSleepingWristTemperature、mindfulness、appleStandHour、dietaryWater、di
 App 没有 HealthKit entitlement 时一条数据都读不到；但 iOS「快捷指令」有自己独立的健康数据权限，可以免费读取用户的健康样本并导出成文件，再由看板本地解析展示。这条路径不调用 App 的 HealthKit，因此免费签名和浏览器模式都能用。
 
 - 生成未签名源文件：`node tools/build-health-shortcut.mjs` → `shortcuts/health-samples.shortcut`（XML plist）。
-- 签名：iOS 15+ 不接受未签名 `.shortcut`；GitHub Actions 的 `shortcuts sign` 需要 macOS 登录 iCloud，公共 runner 上不可用。改用 Cherri Playground（https://playground.cherrilang.org/）：Import Shortcut 选择未签名文件 → 导出图标 → Download Shortcut，得到 HubSign 签名的版本。
-- 安装：把签名后的 `health-samples.shortcut` 传到 iPhone（GitHub 网页下载 / 文件 App / iCloud Drive），点开导入；首次运行允许读取步数、静息心率、睡眠。
-- Playground 导入时会把动作反编译成 Cherri 代码；如果提示不支持或导出失败，把报错发回来，可以改用 Cherri 代码或手工搭建。
-- 数据格式：快捷指令读取最近 2 天的原始样本，写入 iCloud Drive/Shortcuts/health-samples.json：
-  - `steps`：`开始时间|数值;...`
-  - `restingHeartRate`：`开始时间|数值;...`
-  - `sleep`：`开始时间|结束时间|阶段;...`
-  - `schema` 为 `healthsleep.samples.v1`。
+- 生成：`shortcuts/health-samples.cherri` 是快捷指令源码；打开 `shortcuts/playground-link.txt` 里的 Cherri Playground 链接即可载入，点锤子编译，再点分享/导出图标下载 HubSign 签名版。
+- 签名：iOS 15+ 不接受未签名 `.shortcut`；GitHub Actions 的 `shortcuts sign` 需要 macOS 登录 iCloud，公共 runner 上不可用。Cherri Playground 的云朵按钮只接受 iCloud 链接，不能导入本地文件，所以走代码编译+导出签名版。
+- 安装：把签名后的 `.shortcut` 传到 iPhone（文件 App / iCloud Drive），点开导入；导入后编辑三个「查找健康样本」动作，分别设为步数、静息心率、睡眠，筛选「开始日期 在最近 2 天内」。首次运行允许读取健康数据。
+- 数据格式：快捷指令读取最近 2 天的原始样本，写入 iCloud Drive/Shortcuts/health-samples.txt：
+  - 第一行 `healthsleep.samples.v1`
+  - `steps=开始时间|数值;...`
+  - `restingHeartRate=开始时间|数值;...`
+  - `sleep=开始时间|结束时间|阶段;...`
 - 自动化：健康数据在锁屏时不可读，纯定时任务可能静默失败。建议用「App 已打开」（例如打开健康 App 时）触发并「立即运行」，再配一个时间自动化作补充；最近 2 天的窗口可以在下次成功运行时补数。
 - 注意：快捷指令返回原始样本，步数可能把 iPhone 与 Watch 的重复记录一起相加，需与健康 App 对照；睡眠阶段值是本地化文本（核心睡眠/深睡/快速眼动/清醒/卧床）；运动记录不在快捷指令的健康动作范围内，仍用官方导出文件补。
 - 看板消费：还需新增导入入口（解析上述 JSON、按本地日期汇总并合并）；导入的真实健康数据不要提交到公开仓库。

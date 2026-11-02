@@ -1,0 +1,124 @@
+// 导出最近 2 天的步数、静息心率、睡眠样本。
+// 用法：在 https://playground.cherrilang.org/ 粘贴本代码，点锤子编译，再点分享/导出图标下载签名版。
+//
+// 导入快捷指令后，请编辑三个「查找健康样本」动作，分别设为：
+//   1. 步数           筛选：开始日期 在最近 2 天内
+//   2. 静息心率       筛选：开始日期 在最近 2 天内
+//   3. 睡眠           筛选：开始日期 在最近 2 天内
+// 三个动作的筛选条件留空是为了避免 Cherri 对嵌套筛选表的序列化差异。
+//
+// 输出：文件 App → iCloud Drive → Shortcuts → health-samples.txt
+// 格式：
+//   healthsleep.samples.v1
+//   generatedAt=...
+//   steps=开始时间|数值;...
+//   restingHeartRate=开始时间|数值;...
+//   sleep=开始时间|结束时间|阶段;...
+
+#include 'actions/documents'
+
+// ---------- 步数 ----------
+@stepsSamples = rawAction("is.workflow.actions.filter.health.quantity")
+
+@stepsRows: array
+for sample1 in @stepsSamples {
+    @start1 = rawAction("is.workflow.actions.properties.health.quantity", {
+        "WFContentItemPropertyName": "Start Date",
+        "WFInput": "${@sample1}"
+    })
+    @startISO1 = rawAction("is.workflow.actions.format.date", {
+        "WFDate": "{@start1}",
+        "WFDateFormatStyle": "Custom",
+        "WFDateFormat": "yyyy-MM-dd'T'HH:mm:ssXXXXX"
+    })
+    @value1 = rawAction("is.workflow.actions.properties.health.quantity", {
+        "WFContentItemPropertyName": "Value",
+        "WFInput": "${@sample1}"
+    })
+    @stepsRows += text("{@startISO1}|{@value1}")
+}
+
+@stepsJoined = rawAction("is.workflow.actions.text.combine", {
+    "WFInput": "${@stepsRows}",
+    "WFTextSeparator": "Custom",
+    "WFTextCustomSeparator": ";"
+})
+
+// ---------- 静息心率 ----------
+@restingSamples = rawAction("is.workflow.actions.filter.health.quantity")
+
+@restingRows: array
+for sample2 in @restingSamples {
+    @start2 = rawAction("is.workflow.actions.properties.health.quantity", {
+        "WFContentItemPropertyName": "Start Date",
+        "WFInput": "${@sample2}"
+    })
+    @startISO2 = rawAction("is.workflow.actions.format.date", {
+        "WFDate": "{@start2}",
+        "WFDateFormatStyle": "Custom",
+        "WFDateFormat": "yyyy-MM-dd'T'HH:mm:ssXXXXX"
+    })
+    @value2 = rawAction("is.workflow.actions.properties.health.quantity", {
+        "WFContentItemPropertyName": "Value",
+        "WFInput": "${@sample2}"
+    })
+    @restingRows += text("{@startISO2}|{@value2}")
+}
+
+@restingJoined = rawAction("is.workflow.actions.text.combine", {
+    "WFInput": "${@restingRows}",
+    "WFTextSeparator": "Custom",
+    "WFTextCustomSeparator": ";"
+})
+
+// ---------- 睡眠 ----------
+@sleepSamples = rawAction("is.workflow.actions.filter.health.quantity")
+
+@sleepRows: array
+for sample3 in @sleepSamples {
+    @start3 = rawAction("is.workflow.actions.properties.health.quantity", {
+        "WFContentItemPropertyName": "Start Date",
+        "WFInput": "${@sample3}"
+    })
+    @startISO3 = rawAction("is.workflow.actions.format.date", {
+        "WFDate": "{@start3}",
+        "WFDateFormatStyle": "Custom",
+        "WFDateFormat": "yyyy-MM-dd'T'HH:mm:ssXXXXX"
+    })
+    @end3 = rawAction("is.workflow.actions.properties.health.quantity", {
+        "WFContentItemPropertyName": "End Date",
+        "WFInput": "${@sample3}"
+    })
+    @endISO3 = rawAction("is.workflow.actions.format.date", {
+        "WFDate": "{@end3}",
+        "WFDateFormatStyle": "Custom",
+        "WFDateFormat": "yyyy-MM-dd'T'HH:mm:ssXXXXX"
+    })
+    @value3 = rawAction("is.workflow.actions.properties.health.quantity", {
+        "WFContentItemPropertyName": "Value",
+        "WFInput": "${@sample3}"
+    })
+    @sleepRows += text("{@startISO3}|{@endISO3}|{@value3}")
+}
+
+@sleepJoined = rawAction("is.workflow.actions.text.combine", {
+    "WFInput": "${@sleepRows}",
+    "WFTextSeparator": "Custom",
+    "WFTextCustomSeparator": ";"
+})
+
+// ---------- 组装文本并保存 ----------
+@nowISO = rawAction("is.workflow.actions.format.date", {
+    "WFDate": "{CurrentDate}",
+    "WFDateFormatStyle": "Custom",
+    "WFDateFormat": "yyyy-MM-dd'T'HH:mm:ssXXXXX"
+})
+
+@out: text
+@out += "healthsleep.samples.v1\n"
+@out += "generatedAt={@nowISO}\n"
+@out += "steps={@stepsJoined}\n"
+@out += "restingHeartRate={@restingJoined}\n"
+@out += "sleep={@sleepJoined}\n"
+
+saveFile("health-samples.txt", @out, true)
